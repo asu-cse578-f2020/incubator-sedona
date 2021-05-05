@@ -27,15 +27,11 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.sql.catalyst.expressions.codegen.CodegenFallback
 import org.apache.spark.sql.catalyst.util.{ArrayData, GenericArrayData}
-import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.sedona_sql.UDT.GeometryUDT
 import org.apache.spark.sql.sedona_sql.expressions.implicits.GeometryEnhancer
 import org.apache.spark.sql.types.{ArrayType, DataType, DataTypes, Decimal, DoubleType, StringType, StructField, StructType}
 import org.apache.spark.unsafe.types.UTF8String
 import org.locationtech.jts.geom.{Coordinate, Geometry, GeometryFactory, Polygon}
-
-import java.util
-import scala.collection.JavaConverters.asScalaBufferConverter
 import scala.collection.convert.ImplicitConversions.`collection AsScalaIterable`
 /**
   * Return a point from a string. The string must be plain string and each coordinate must be separated by a delimiter.

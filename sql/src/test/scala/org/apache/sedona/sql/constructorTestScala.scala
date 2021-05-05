@@ -111,6 +111,30 @@ class constructorTestScala extends TestBaseScala {
       Adapter.toDf(spatialRDD2, sparkSession).show(1)
     }
 
+    it("Passed ST_GeomFromRaster") {
+      var imageDF = sparkSession.read.format("csv").option("delimiter", "\t").option("header", "false").load(csvRasterLocation)
+      imageDF.createOrReplaceTempView("imagetable")
+      imageDF.show()
+      var polygonDf = sparkSession.sql("select ST_GeomFromRaster(imagetable._c0) as countyshape from imagetable")
+      polygonDf.show()
+      assert(polygonDf.count() == 17)
+    }
+
+    it("Passed ST_DataframeFromRaster") {
+      var imageDF = sparkSession.read.format("csv").option("delimiter", "\t").option("header", "false").load(csvRasterLocation)
+      imageDF.show()
+      imageDF.createOrReplaceTempView("imagetable")
+      var rasterDF = sparkSession.sql("select ST_DataframeFromRaster(imagetable._c0, 4) as rasterStruct from imagetable")
+      rasterDF.createOrReplaceTempView("raster")
+      var sedonaDF = sparkSession.sql("select rasterStruct.Polygon as Geom, rasterStruct.band1 as Band_1, rasterStruct.band2 as band_2, rasterStruct.band3 as Band_3, rasterStruct.band4 as Band_4 from raster")
+      sedonaDF.show()
+      sedonaDF.printSchema()
+      assert(sedonaDF.count() == 17)
+    }
+
+
+
+
 
 
   }

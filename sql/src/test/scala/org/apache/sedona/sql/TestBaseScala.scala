@@ -60,7 +60,7 @@ trait TestBaseScala extends FunSpec with BeforeAndAfterAll {
   val geojsonIdInputLocation = resourceFolder + "testContainsId.json"
   val smallAreasLocation: String = resourceFolder + "small/areas.csv"
   val smallPointsLocation: String = resourceFolder + "small/points.csv"
-  val csvRasterLocation = resourceFolder + "raster/images.csv"
+  val csvRasterLocation = "/home/hp/Documents/incubator-sedona/core/src/test/resources/raster/imageURL.csv"
 
 
   override def beforeAll(): Unit = {
