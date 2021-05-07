@@ -28,6 +28,8 @@ import org.locationtech.jts.geom.Geometry
 import org.locationtech.jts.linearref.LengthIndexedLine
 import org.scalatest.{GivenWhenThen, Matchers}
 
+import scala.collection.mutable
+
 class functionTestScala extends TestBaseScala with Matchers with GeometrySample with GivenWhenThen {
 
   import sparkSession.implicits._
@@ -957,5 +959,37 @@ class functionTestScala extends TestBaseScala with Matchers with GeometrySample 
         lineString2D.getFactory.createPoint(interPoint3D).toText
       )
   }
+
+  it ("Passed ST_NDVI") {
+
+    val df1 = Seq((Array(1.0,2.0), Array(4.0,5.0))).toDF("band_1", "band_2")
+    val df2 = Seq((Array(0.0,0.0), Array(0.0,0.0))).toDF("band_1", "band_2")
+
+    df1.createOrReplaceTempView("temp1")
+    df2.createOrReplaceTempView("temp2")
+    val ndvi1 = sparkSession.sql("Select ST_NDVI(band_1, band_2) as ndvi from temp1")
+    val ndvi2 = sparkSession.sql("Select ST_NDVI(band_1, band_2) as ndvi from temp2")
+    ndvi1.show()
+    ndvi2.show()
+
+    val result1 = ndvi1.take(1)(0).get(0).asInstanceOf[mutable.WrappedArray[Double]].toArray
+    val result2 = ndvi2.take(1)(0).get(0).asInstanceOf[mutable.WrappedArray[Double]].toArray
+
+    assert(ndvi1.count()==1 && result1.sameElements(Array(0.6, 0.43)))
+    assert(ndvi2.count()==1 && result2.sameElements(Array(-0.0,-0.0)))
+
+  }
+
+  it ("Passed ST_Mean") {
+
+    val df1 = Seq(Array(1.0,2.0), Array(4.0,5.0)).toDF("band_1")
+    df1.createOrReplaceTempView("temp1")
+    val meanDF = sparkSession.sql("Select ST_Mean(band_1) as mean from temp1")
+    meanDF.show()
+    assert(meanDF.count()==2 && meanDF.take(1)(0).get(0).asInstanceOf[Double]==1.5)
+
+  }
+
+
 
 }

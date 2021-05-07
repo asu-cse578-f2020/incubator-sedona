@@ -43,7 +43,7 @@ import org.locationtech.jts.precision.GeometryPrecisionReducer
 import org.locationtech.jts.simplify.TopologyPreservingSimplifier
 import org.locationtech.jts.linearref.LengthIndexedLine
 import org.opengis.referencing.operation.MathTransform
-
+import org.apache.sedona.sql.raster.Mapalgebra
 import java.util
 import scala.collection.mutable.ArrayBuffer
 import scala.util.{Failure, Success, Try}
@@ -1124,3 +1124,48 @@ case class ST_FlipCoordinates(inputExpressions: Seq[Expression])
   override def children: Seq[Expression] = inputExpressions
 }
 
+/** Calculates Natural vegetation index of an image patch based on red band and infrared band
+ *
+ * @param inputExpressions Red band and NIR band
+ */
+
+case class ST_NDVI(inputExpressions: Seq[Expression])
+  extends Expression with CodegenFallback {
+  override def nullable: Boolean = false
+
+  override def eval(input: InternalRow): Any = {
+    assert(inputExpressions.length == 2)
+    val band1 = inputExpressions(0).eval(input).asInstanceOf[ArrayData].toDoubleArray()
+    val band2 = inputExpressions(1).eval(input).asInstanceOf[ArrayData].toDoubleArray()
+    assert(band1.length==band2.length)
+    val operations = new Mapalgebra()
+    val ndvi = operations.ndvi(band1, band2)
+    new GenericArrayData(ndvi)
+
+  }
+
+  override def dataType: DataType = ArrayType(DoubleType)
+
+  override def children: Seq[Expression] = inputExpressions
+}
+
+/**
+ * Mean of a raster band
+ * @param inputExpressions band value as an array
+ */
+case class ST_Mean(inputExpressions: Seq[Expression])
+  extends Expression with CodegenFallback {
+  override def nullable: Boolean = false
+
+  override def eval(input: InternalRow): Any = {
+    assert(inputExpressions.length == 1)
+    val band = inputExpressions(0).eval(input).asInstanceOf[ArrayData].toDoubleArray()
+    val operations = new Mapalgebra()
+    operations.mean(band)
+
+  }
+
+  override def dataType: DataType = DoubleType
+
+  override def children: Seq[Expression] = inputExpressions
+}
