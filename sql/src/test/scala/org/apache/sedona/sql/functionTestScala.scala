@@ -990,6 +990,14 @@ class functionTestScala extends TestBaseScala with Matchers with GeometrySample 
 
   }
 
+  it ("Passed ST_GreenRatio") {
 
+    val df1 = Seq(Array(1.0,2.0), Array(4.0,5.0)).toDF("band_1")
+    df1.createOrReplaceTempView("temp1")
+    val meanDF = sparkSession.sql("Select ST_Mean(band_1) as mean from temp1")
+    meanDF.show()
+    assert(meanDF.count()==2 && meanDF.take(1)(0).get(0).asInstanceOf[Double]==1.5)
+
+  }
 
 }

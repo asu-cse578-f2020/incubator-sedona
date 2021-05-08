@@ -87,7 +87,8 @@ object Catalog {
     ST_GeomFromRaster,
     ST_DataframeFromRaster,
     ST_NDVI,
-    ST_Mean
+    ST_Mean,
+    ST_GreenRatio
   )
 
   val aggregateExpressions: Seq[Aggregator[Geometry, Geometry, Geometry]] = Seq(

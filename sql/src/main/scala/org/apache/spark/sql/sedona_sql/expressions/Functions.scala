@@ -1169,3 +1169,27 @@ case class ST_Mean(inputExpressions: Seq[Expression])
 
   override def children: Seq[Expression] = inputExpressions
 }
+
+/**
+ * Calculates green ratio for a rater image given three band values
+ * @param inputExpressions band1(Green band), band2(Blue), band3(Red)
+ */
+case class ST_GreenRatio(inputExpressions: Seq[Expression])
+  extends Expression with CodegenFallback {
+  override def nullable: Boolean = false
+
+  override def eval(input: InternalRow): Any = {
+    assert(inputExpressions.length == 3)
+    val band1 = inputExpressions(0).eval(input).asInstanceOf[ArrayData].toDoubleArray()
+    val band2 = inputExpressions(1).eval(input).asInstanceOf[ArrayData].toDoubleArray()
+    val band3 = inputExpressions(2).eval(input).asInstanceOf[ArrayData].toDoubleArray()
+
+    val operations = new Mapalgebra()
+    new GenericArrayData(operations.greenratio(band1, band2, band3))
+
+  }
+
+  override def dataType: DataType = ArrayType(DoubleType)
+
+  override def children: Seq[Expression] = inputExpressions
+}

@@ -28,15 +28,32 @@ public class Mapalgebra {
         return result;
     }
 
+    // Vegetation index of a raster image
     public double[] ndvi(double[] band1, double[] band2)
     {
         return localoperation1(band1, band2);
     }
+
+    // Mean value of a band for raster image
     public double mean(double[] band1)
     {
         return Arrays.stream(band1).sum()/band1.length;
     }
 
+    // Green ratio for a raster image
+    public double[] greenratio(double[] band1, double[] band2, double[] band3)
+    {
+        double[] result = new double[band1.length];
+
+        for(int i=0;i<band1.length;i++)
+        {
+            band1[i] = (band1[i]==0?-1:band1[i]);
+            band2[i] = (band2[i]==0?-1:band2[i]);
+            band3[i] = (band3[i]==0?-1:band3[i]);
+            result[i] = band1[i]/(band1[i] + band2[i] + band3[i]);
+        }
+        return result;
+    }
 
 
 
