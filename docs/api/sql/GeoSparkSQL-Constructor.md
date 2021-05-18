@@ -185,3 +185,100 @@ SELECT *
 FROM pointdf
 WHERE ST_Contains(ST_PolygonFromEnvelope(1.0,100.0,1000.0,1100.0), pointdf.pointshape)
 ```
+
+## ST_GeomFromGeotiff
+
+Introduction: Return a polygon geometry from a given raster image
+
+Format: `ST_GeomFromGeotiff (imageURL:String)`
+
+Since: `v1.0.0`
+
+Spark SQL example:
+```SQL
+val imageDF = spark.sql("Select * from images")
+imageDF.show()
+image.createOrReplaceTempView("geotiffDF")
+
++--------------------------------+
+|_c0                             |
++--------------------------------+
+|hdfs://127.0.0.1:42951/image.tif|
+|hdfs://127.0.0.1:42951/image.tif|
++--------------------------------+
+
+val geomDF = spark.sql("select ST_GeomFromGeotiff(_c0) as Geometry from geotiffDF")
+geomDF.show()
+
++--------------------+
+|         countyshape|
++--------------------+
+|POLYGON ((-64.807...|
+|POLYGON ((-64.807...|
++--------------------+
+```
+
+## ST_GeomWithBandsFromGeoTiff
+
+Introduction: Return a polygon geometry and values for all the bands in form of a structure given a raster image and total number of bands queried by user
+
+Format: `ST_GeomWithBandsFromGeoTiff (imageURL:String, numBands:Int)`
+
+Since: `v1.0.0`
+
+Spark SQL example:
+```SQL
+val structDF = spark.sql("Select ST_GeomWithBandsFromGeoTiff(rasterDF.imageURL, 4) as geotiffStruct from geotiffDF")
+structDF.printSchema()
+
+root
+ |-- rasterstruct: struct (nullable = false)
+ |    |-- Polygon: geometry (nullable = false)
+ |    |-- bands: array (nullable = true)
+ |    |    |-- element: double (containsNull = true)
+
+
+val geomwithallBandsDF = spark.sql("Select geotiffStruct.Polygon as geom, geotiffStruct.bands as geotiffBands from geotiffStructDF")
+geomwithallBandsDF.show()
+geomwithallBandsDF.createOrReplaceTempView("initDF")
+
++--------------------+--------------------+
+|                geom|          rasterBand|
++--------------------+--------------------+
+|POLYGON ((-64.807...|[0.0, 0.0, 0.0, 0...|
+|POLYGON ((-64.807...|[0.0, 0.0, 0.0, 0...|
++--------------------+--------------------+
+```
+
+## ST_GetBand
+
+Introduction: Return a particular band from result of ST_GeomWithBandsFromGeoTiff
+
+Format: `ST_GetBand (allBandValues: Array[Array[Double]], targetBand:Int, totalBands:Int)`
+
+Since: `v1.0.0`
+
+Spark SQL example:
+```SQL
+
+val initialDF = spark.sql("Select rasterBand from initDF")
+initialDF.show()
+initialDF.createOrReplaceTempView("resultOfST_GeomWithBandsFromGeoTiff")
+
++------------------------------------------+
+|rasterBand                                |
++------------------------------------------+
+|[200.0, 400.0, 600.0, 800.0, 900.0, 100.0]|
+|[200.0, 500.0, 800.0, 300.0, 200.0, 100.0]|
++------------------------------------------+
+
+val finalDF = spark.sql("select ST_GetBand(geotiffBands, 2, 3) as band2 from resultOfST_GeomWithBandsFromGeoTiff")
+finalDF.show()
+
++--------------+
+|band2         |
++--------------+
+|[600.0, 800.0]|
+|[800.0, 300.0]|
++--------------+
+```

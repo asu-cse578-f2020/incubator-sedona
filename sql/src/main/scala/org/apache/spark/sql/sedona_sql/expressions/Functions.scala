@@ -1124,6 +1124,7 @@ case class ST_FlipCoordinates(inputExpressions: Seq[Expression])
   override def children: Seq[Expression] = inputExpressions
 }
 
+
 /** Calculates Natural vegetation index of an image patch based on red band and infrared band
  *
  * @param inputExpressions Red band and NIR band
@@ -1193,3 +1194,4 @@ case class ST_GreenRatio(inputExpressions: Seq[Expression])
 
   override def children: Seq[Expression] = inputExpressions
 }
+
