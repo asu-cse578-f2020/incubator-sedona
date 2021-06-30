@@ -11,17 +11,11 @@ The input path could be a path to a single GeoTiff image or a directory of GeoTi
  You can optionally append an option to drop invalid images. The geometry bound of each image is automatically loaded
 as a Sedona geometry and is transformed to WGS84 (EPSG:4326) reference system.
 
-```SQL 
-=======
 ```Scala
->>>>>>> .merge_file_XtbJF8
 var geotiffDF = sparkSession.read.format("geotiff").option("dropInvalid", true).load("YOUR_PATH")
 geotiffDF.printSchema()
 ```
 
-<<<<<<< .merge_file_AMNPL4
-Output
-=======
 Output:
 
 ```html
@@ -37,18 +31,12 @@ Output:
 
 You can also select sub-attributes individually to construct a new DataFrame
 
-```SQL
-=======
 ```Scala
->>>>>>> .merge_file_XtbJF8
 geotiffDF = geotiffDF.selectExpr("image.origin as origin","image.Geometry as Geom", "image.height as height", "image.width as width", "image.data as data", "image.nBands as bands")
 geotiffDF.createOrReplaceTempView("GeotiffDataframe")
 geotiffDF.show()
 ```
 
-<<<<<<< .merge_file_AMNPL4
-Output
-=======
 Output:
 
 ```html
@@ -71,13 +59,6 @@ Format: `RS_GetBand (allBandValues: Array[Double], targetBand:Int, totalBands:In
 Since: `v1.1.0`
 
 Spark SQL example:
-<<<<<<< .merge_file_AMNPL4
-```SQL
-
-val BandDF = spark.sql("select RS_GetBand(data, 2, Band) as targetBand from GeotiffDataframe")
-BandDF.show()
-
-=======
 
 ```Scala
 val BandDF = spark.sql("select RS_GetBand(data, 2, Band) as targetBand from GeotiffDataframe")
@@ -95,8 +76,6 @@ Output:
 +--------------------+
 ```
 
-<<<<<<< .merge_file_AMNPL4
-=======
 ## RS_Array
 
 Introduction: Create an array that is filled by the given value
@@ -115,22 +94,12 @@ SELECT RS_Array(height * width, 0.0)
 
 Introduction: Return a Base64 String from a geotiff image
 
-<<<<<<< .merge_file_AMNPL4
-Format: `RS_Base64 (Band: Array[Double])`
-=======
 Format: `RS_Base64 (height:Int, width:Int, redBand: Array[Double], greenBand: Array[Double], blackBand: Array[Double], 
 optional: alphaBand: Array[Double])`
->>>>>>> .merge_file_XtbJF8
 
 Since: `v1.1.0`
 
 Spark SQL example:
-```SQL
-
-val BandDF = spark.sql("select RS_Base64(band) as baseString from dataframe")
-BandDF.show()
-
-=======
 ```Scala
 val BandDF = spark.sql("select RS_Base64(h, w, band1, band2, RS_Array(h*w, 0)) as baseString from dataframe")
 BandDF.show()
@@ -145,9 +114,6 @@ Output:
 |QJCIAAAAAABAkDwAA...|
 |QJOoAAAAAABAlEgAA...|
 +--------------------+
-
-```
-=======
 ```
 
 !!!note
