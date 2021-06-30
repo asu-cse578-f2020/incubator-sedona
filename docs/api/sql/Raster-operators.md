@@ -8,6 +8,8 @@ Since: `v1.1.0`
 
 Spark SQL example:
 ```SQL
+=======
+```Scala
 
 val sumDF = spark.sql("select RS_Add(band1, band2) as sumOfBands from dataframe")
 
@@ -23,6 +25,8 @@ Since: `v1.1.0`
 
 Spark SQL example:
 ```SQL
+=======
+```Scala
 
 val subtractDF = spark.sql("select RS_Subtract(band1, band2) as differenceOfOfBands from dataframe")
 
@@ -38,6 +42,8 @@ Since: `v1.1.0`
 
 Spark SQL example:
 ```SQL
+=======
+```Scala
 
 val multiplyDF = spark.sql("select RS_MultiplyBands(band1, band2) as multiplyBands from dataframe")
 
@@ -53,6 +59,8 @@ Since: `v1.1.0`
 
 Spark SQL example:
 ```SQL
+=======
+```Scala
 
 val multiplyDF = spark.sql("select RS_DivideBands(band1, band2) as divideBands from dataframe")
 
@@ -68,6 +76,8 @@ Since: `v1.1.0`
 
 Spark SQL example:
 ```SQL
+=======
+```Scala
 
 val multiplyFactorDF = spark.sql("select RS_MultiplyFactor(band1, 2) as multiplyfactor from dataframe")
 
@@ -83,6 +93,8 @@ Since: `v1.1.0`
 
 Spark SQL example:
 ```SQL
+=======
+```Scala
 
 val modeDF = spark.sql("select RS_Mode(band) as mode from dataframe")
 
@@ -98,6 +110,8 @@ Since: `v1.1.0`
 
 Spark SQL example:
 ```SQL
+=======
+```Scala
 
 val meanDF = spark.sql("select RS_Mean(band) as mean from dataframe")
 
@@ -113,6 +127,8 @@ Since: `v1.1.0`
 
 Spark SQL example:
 ```SQL
+=======
+```Scala
 
 val normalizedDF = spark.sql("select RS_NormalizedDifference(band1, band2) as normdifference from dataframe")
 
@@ -128,6 +144,8 @@ Since: `v1.1.0`
 
 Spark SQL example:
 ```SQL
+=======
+```Scala
 
 val countDF = spark.sql("select RS_Count(band1, target) as count from dataframe")
 
@@ -143,6 +161,8 @@ Since: `v1.1.0`
 
 Spark SQL example:
 ```SQL
+=======
+```Scala
 
 val greaterDF = spark.sql("select RS_GreaterThan(band, target) as maskedvalues from dataframe")
 
@@ -158,6 +178,9 @@ Since: `v1.1.0`
 
 Spark SQL example:
 ```SQL
+=======
+```Scala
+>>>>>>> .merge_file_2fW384
 
 val greaterEqualDF = spark.sql("select RS_GreaterThanEqual(band, target) as maskedvalues from dataframe")
 
@@ -173,6 +196,9 @@ Since: `v1.1.0`
 
 Spark SQL example:
 ```SQL
+=======
+```Scala
+>>>>>>> .merge_file_2fW384
 
 val lessDF = spark.sql("select RS_LessThan(band, target) as maskedvalues from dataframe")
 
@@ -188,6 +214,9 @@ Since: `v1.1.0`
 
 Spark SQL example:
 ```SQL
+=======
+```Scala
+>>>>>>> .merge_file_2fW384
 
 val lessEqualDF = spark.sql("select RS_LessThanEqual(band, target) as maskedvalues from dataframe")
 
@@ -203,6 +232,9 @@ Since: `v1.1.0`
 
 Spark SQL example:
 ```SQL
+=======
+```Scala
+>>>>>>> .merge_file_2fW384
 
 val moduloDF = spark.sql("select RS_Modulo(band, target) as modulo from dataframe")
 
@@ -218,6 +250,8 @@ Since: `v1.1.0`
 
 Spark SQL example:
 ```SQL
+=======
+```Scala
 
 val biwiseandDF = spark.sql("select RS_BitwiseAND(band1, band2) as andvalue from dataframe")
 
@@ -233,6 +267,8 @@ Since: `v1.1.0`
 
 Spark SQL example:
 ```SQL
+=======
+```Scala
 
 val biwiseorDF = spark.sql("select RS_BitwiseOR(band1, band2) as or from dataframe")
 
@@ -248,6 +284,8 @@ Since: `v1.1.0`
 
 Spark SQL example:
 ```SQL
+=======
+```Scala
 
 val rootDF = spark.sql("select RS_SquareRoot(band) as squareroot from dataframe")
 
@@ -263,6 +301,8 @@ Since: `v1.1.0`
 
 Spark SQL example:
 ```SQL
+=======
+```Scala
 
 val logicalDifference = spark.sql("select RS_LogicalDifference(band1, band2) as logdifference from dataframe")
 
@@ -278,6 +318,8 @@ Since: `v1.1.0`
 
 Spark SQL example:
 ```SQL
+=======
+```Scala
 
 val logicalOver = spark.sql("select RS_LogicalOver(band1, band2) as logover from dataframe")
 
@@ -296,4 +338,19 @@ Spark SQL example:
 
 val region = spark.sql("select RS_FetchRegion(Band,Array(0, 0, 1, 2),Array(3, 3)) as Region from dataframe")
 
+=======
+```Scala
+
+val region = spark.sql("select RS_FetchRegion(Band,Array(0, 0, 1, 2),Array(3, 3)) as Region from dataframe")
+```
+
+## RS_Normalize
+
+Introduction: Normalize the value in the array to [0, 255]
+
+Since: `v1.1.0`
+
+Spark SQL example
+```SQL
+SELECT RS_Normalize(band)
 ```
