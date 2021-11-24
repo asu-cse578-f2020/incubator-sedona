@@ -243,6 +243,66 @@ SELECT ST_AsGeoJSON(polygondf.countyshape)
 FROM polygondf
 ```
 
+## ST_AsBinary
+
+Introduction: Return the Well-Known Binary representation of a geometry
+
+Format: `ST_AsBinary (A:geometry)`
+
+Since: `v1.1.1`
+
+Spark SQL example:
+```SQL
+SELECT ST_AsBinary(polygondf.countyshape)
+FROM polygondf
+```
+
+## ST_AsEWKB
+
+Introduction: Return the Extended Well-Known Binary representation of a geometry.
+EWKB is an extended version of WKB which includes the SRID of the geometry.
+The format originated in PostGIS but is supported by many GIS tools.
+If the geometry is lacking SRID a WKB format is produced.
+[Se ST_SetSRID](#ST_SetSRID)
+
+Format: `ST_AsEWKB (A:geometry)`
+
+Since: `v1.1.1`
+
+Spark SQL example:
+```SQL
+SELECT ST_AsEWKB(polygondf.countyshape)
+FROM polygondf
+```
+
+## ST_SRID
+
+Introduction: Return the spatial refence system identifier (SRID) of the geometry.
+
+Format: `ST_SRID (A:geometry)`
+
+Since: `v1.1.1`
+
+Spark SQL example:
+```SQL
+SELECT ST_SRID(polygondf.countyshape)
+FROM polygondf
+```
+
+## ST_SetSRID
+
+Introduction: Sets the spatial refence system identifier (SRID) of the geometry.
+
+Format: `ST_SetSRID (A:geometry, srid: Integer)`
+
+Since: `v1.1.1`
+
+Spark SQL example:
+```SQL
+SELECT ST_SetSRID(polygondf.countyshape, 3021)
+FROM polygondf
+```
+
 ## ST_NPoints
 
 Introduction: Return points of the geometry
@@ -726,4 +786,110 @@ Result:
 |LINESTRING(85 85, 100 100)   |
 |LINESTRING(100 100, 120 120) |
 +-----------------------------+
+```
+
+## ST_MakePolygon
+
+Introduction: Function to convert closed linestring to polygon including holes
+
+Format: `ST_MakePolygon(geom: geometry, holes: array<geometry>)`
+
+Since: `v1.1.0`
+
+Example:
+
+Query:
+```SQL
+SELECT
+    ST_MakePolygon(
+        ST_GeomFromText('LINESTRING(7 -1, 7 6, 9 6, 9 1, 7 -1)'),
+        ARRAY(ST_GeomFromText('LINESTRING(6 2, 8 2, 8 1, 6 1, 6 2)'))
+    ) AS polygon
+```
+
+Result:
+
+```
++----------------------------------------------------------------+
+|polygon                                                         |
++----------------------------------------------------------------+
+|POLYGON ((7 -1, 7 6, 9 6, 9 1, 7 -1), (6 2, 8 2, 8 1, 6 1, 6 2))|
++----------------------------------------------------------------+
+
+```
+
+
+## ST_GeoHash
+
+Introduction: Returns GeoHash of the geometry with given precision
+
+Format: `ST_GeoHash(geom: geometry, precision: int)`
+
+Since: `v1.1.1`
+
+Example: 
+
+Query:
+
+```SQL
+SELECT ST_GeoHash(ST_GeomFromText('POINT(21.427834 52.042576573)'), 5) AS geohash
+```
+
+Result:
+
+```
++-----------------------------+
+|geohash                      |
++-----------------------------+
+|u3r0p                        |
++-----------------------------+
+```
+
+## ST_Collect
+
+Introduction: Returns MultiGeometry object based on geometry column/s or array with geometries
+
+Format 
+
+`ST_Collect(*geom: geometry)`
+
+`ST_Collect(geom: array<geometry>)`
+
+Since: `v1.2.0`
+
+Example: 
+```SQL
+SELECT ST_Collect(
+    ST_GeomFromText('POINT(21.427834 52.042576573)'),
+    ST_GeomFromText('POINT(45.342524 56.342354355)')
+) AS geom
+```
+Result:
+
+```
++---------------------------------------------------------------+
+|geom                                                           |
++---------------------------------------------------------------+
+|MULTIPOINT ((21.427834 52.042576573), (45.342524 56.342354355))|
++---------------------------------------------------------------+
+```
+
+Example:
+```SQL
+SELECT ST_Collect(
+    Array(
+        ST_GeomFromText('POINT(21.427834 52.042576573)'),
+        ST_GeomFromText('POINT(45.342524 56.342354355)')
+    )
+) AS geom
+```
+
+Result:
+
+```
++---------------------------------------------------------------+
+|geom                                                           |
++---------------------------------------------------------------+
+|MULTIPOINT ((21.427834 52.042576573), (45.342524 56.342354355))|
++---------------------------------------------------------------+
 ```
