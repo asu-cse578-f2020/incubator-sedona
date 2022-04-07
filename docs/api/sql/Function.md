@@ -12,6 +12,20 @@ SELECT ST_Distance(polygondf.countyshape, polygondf.countyshape)
 FROM polygondf
 ```
 
+## ST_3DDistance
+
+Introduction: Return the 3-dimensional minimum cartesian distance between A and B
+
+Format: `ST_3DDistance (A:geometry, B:geometry)`
+
+Since: `v1.2.0`
+
+Spark SQL example:
+```SQL
+SELECT ST_3DDistance(polygondf.countyshape, polygondf.countyshape)
+FROM polygondf
+```
+
 ## ST_ConvexHull
 
 Introduction: Return the Convex Hull of polgyon A
@@ -148,27 +162,40 @@ FROM polygondf
 
 ## ST_MakeValid
 
-Introduction: Given an invalid polygon or multipolygon and removeHoles boolean flag,
- create a valid representation of the geometry.
+Introduction: Given an invalid geometry, create a valid representation of the geometry.
 
-Format: `ST_MakeValid (A:geometry, removeHoles:Boolean)`
+Collapsed geometries are either converted to empty (keepCollaped=true) or a valid geometry of lower dimension (keepCollapsed=false).
+Default is keepCollapsed=false.
+
+Format: `ST_MakeValid (A:geometry)`
+
+Format: `ST_MakeValid (A:geometry, keepCollapsed:Boolean)`
 
 Since: `v1.0.0`
 
 Spark SQL example:
 
 ```SQL
-SELECT geometryValid.polygon
-FROM table
-LATERAL VIEW ST_MakeValid(polygon, false) geometryValid AS polygon
+WITH linestring AS (
+    SELECT ST_GeomFromWKT('LINESTRING(1 1, 1 1)') AS geom
+) SELECT ST_MakeValid(geom), ST_MakeValid(geom, true) FROM linestring
+```
+
+Result:
+```
++------------------+------------------------+
+|st_makevalid(geom)|st_makevalid(geom, true)|
++------------------+------------------------+
+|  LINESTRING EMPTY|             POINT (1 1)|
++------------------+------------------------+
 ```
 
 !!!note
-    Might return multiple polygons from a only one invalid polygon
-    That's the reason why we need to use the LATERAL VIEW expression
-    
-!!!note
-    Throws an exception if the geometry isn't polygon or multipolygon
+    In Sedona up to and including version 1.2 the behaviour of ST_MakeValid was different.
+    Be sure to check you code when upgrading. 
+    The previous implementation only worked for (multi)polygons and had a different interpretation of the second, boolean, argument.
+    It would also sometimes return multiple geometries for a single geomtry input.
+
 
 ## ST_PrecisionReduce
 
@@ -404,6 +431,21 @@ SELECT ST_Y(ST_POINT(0.0 25.0))
 ```
 
 Output: `25.0`
+
+## ST_Z
+
+Introduction: Returns Z Coordinate of given Point, null otherwise.
+
+Format: `ST_Z(pointA: Point)`
+
+Since: `v1.2.0`
+
+Spark SQL example:
+```SQL
+SELECT ST_Z(ST_POINT(0.0 25.0 11.0))
+```
+
+Output: `11.0`
 
 ## ST_StartPoint
 
@@ -858,12 +900,14 @@ Format
 Since: `v1.2.0`
 
 Example: 
+
 ```SQL
 SELECT ST_Collect(
     ST_GeomFromText('POINT(21.427834 52.042576573)'),
     ST_GeomFromText('POINT(45.342524 56.342354355)')
 ) AS geom
 ```
+
 Result:
 
 ```
@@ -875,6 +919,7 @@ Result:
 ```
 
 Example:
+
 ```SQL
 SELECT ST_Collect(
     Array(
@@ -892,4 +937,95 @@ Result:
 +---------------------------------------------------------------+
 |MULTIPOINT ((21.427834 52.042576573), (45.342524 56.342354355))|
 +---------------------------------------------------------------+
+```
+
+## ST_Multi
+
+Introduction: Returns a MultiGeometry object based on the geometry input.
+ST_Multi is basically an alias for ST_Collect with one geometry.
+
+Format
+
+`ST_Multi(geom: geometry)`
+
+Since: `v1.2.1`
+
+Example:
+
+```SQL
+SELECT ST_Multi(
+    ST_GeomFromText('POINT(1 1)')
+) AS geom
+```
+
+Result:
+
+```
++---------------------------------------------------------------+
+|geom                                                           |
++---------------------------------------------------------------+
+|MULTIPOINT (1 1)                                               |
++---------------------------------------------------------------+
+```
+
+## ST_Difference
+
+Introduction: Return the difference between geometry A and B (return part of geometry A that does not intersect geometry B)
+
+Format: `ST_Difference (A:geometry, B:geometry)`
+
+Since: `v1.2.0`
+
+Example:
+
+```SQL
+SELECT ST_Difference(ST_GeomFromWKT('POLYGON ((-3 -3, 3 -3, 3 3, -3 3, -3 -3))'), ST_GeomFromWKT('POLYGON ((0 -4, 4 -4, 4 4, 0 4, 0 -4))'))
+```
+
+Result:
+
+```
+POLYGON ((0 -3, -3 -3, -3 3, 0 3, 0 -3))
+```
+
+## ST_SymDifference
+
+Introduction: Return the symmetrical difference between geometry A and B (return parts of geometries which are in either of the sets, but not in their intersection)
+
+
+Format: `ST_SymDifference (A:geometry, B:geometry)`
+
+Since: `v1.2.0`
+
+Example:
+
+```SQL
+SELECT ST_SymDifference(ST_GeomFromWKT('POLYGON ((-3 -3, 3 -3, 3 3, -3 3, -3 -3))'), ST_GeomFromWKT('POLYGON ((-2 -3, 4 -3, 4 3, -2 3, -2 -3))'))
+```
+
+Result:
+
+```
+MULTIPOLYGON (((-2 -3, -3 -3, -3 3, -2 3, -2 -3)), ((3 -3, 3 3, 4 3, 4 -3, 3 -3)))
+```
+
+## ST_Union
+
+Introduction: Return the union of geometry A and B
+
+
+Format: `ST_Union (A:geometry, B:geometry)`
+
+Since: `v1.2.0`
+
+Example:
+
+```SQL
+SELECT ST_Union(ST_GeomFromWKT('POLYGON ((-3 -3, 3 -3, 3 3, -3 3, -3 -3))'), ST_GeomFromWKT('POLYGON ((1 -2, 5 0, 1 2, 1 -2))'))
+```
+
+Result:
+
+```
+POLYGON ((3 -1, 3 -3, -3 -3, -3 3, 3 3, 3 1, 5 0, 3 -1))
 ```

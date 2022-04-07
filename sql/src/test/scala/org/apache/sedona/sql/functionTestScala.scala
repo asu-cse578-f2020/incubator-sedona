@@ -22,11 +22,14 @@ package org.apache.sedona.sql
 import org.apache.commons.codec.binary.Hex
 import org.apache.sedona.sql.implicits._
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.sedona_sql.expressions.ST_MakeValid
 import org.apache.spark.sql.{DataFrame, Row}
 import org.geotools.geometry.jts.WKTReader2
 import org.locationtech.jts.algorithm.MinimumBoundingCircle
 import org.locationtech.jts.geom.{Geometry, Polygon}
+import org.locationtech.jts.io.WKTWriter
 import org.locationtech.jts.linearref.LengthIndexedLine
+import org.locationtech.jts.operation.distance3d.Distance3DOp
 import org.scalatest.{GivenWhenThen, Matchers}
 
 class functionTestScala extends TestBaseScala with Matchers with GeometrySample with GivenWhenThen {
@@ -96,6 +99,16 @@ class functionTestScala extends TestBaseScala with Matchers with GeometrySample 
       polygonDf.createOrReplaceTempView("polygondf")
       var functionDf = sparkSession.sql("select ST_Distance(polygondf.countyshape, polygondf.countyshape) from polygondf")
       assert(functionDf.count() > 0);
+    }
+
+    it("Passed ST_3DDistance") {
+      val point1 = wktReader.read("POINT Z (0 0 -5)")
+      val point2 = wktReader.read("POINT Z (1 1 -6)")
+      val pointDf = Seq(Tuple2(point1, point2)).toDF("p1", "p2")
+      pointDf.createOrReplaceTempView("pointdf")
+      var functionDf = sparkSession.sql("select ST_3DDistance(p1, p2) from pointdf")
+      val expected = Distance3DOp.distance(point1, point2)
+      assert(functionDf.take(1)(0).get(0).asInstanceOf[Double].equals(expected))
     }
 
     it("Passed ST_Transform") {
@@ -191,62 +204,42 @@ class functionTestScala extends TestBaseScala with Matchers with GeometrySample 
     it("Passed ST_MakeValid On Invalid Polygon") {
 
       val df = sparkSession.sql("SELECT ST_GeomFromWKT('POLYGON((1 5, 1 1, 3 3, 5 3, 7 1, 7 5, 5 3, 3 3, 1 5))') AS polygon")
-      df.createOrReplaceTempView("table")
 
-      val result = sparkSession.sql(
-        """
-          |SELECT geometryValid.polygon
-          |FROM table
-          |LATERAL VIEW ST_MakeValid(polygon, false) geometryValid AS polygon
-          |""".stripMargin
-      ).collect()
+      val result = df.withColumn("polygon", expr("ST_MakeValid(polygon)")).collect()
 
-      val wktReader = new WKTReader2()
-      val firstValidGeometry = wktReader.read("POLYGON ((1 5, 3 3, 1 1, 1 5))")
-      val secondValidGeometry = wktReader.read("POLYGON ((5 3, 7 5, 7 1, 5 3))")
-
-      assert(result.exists(row => row.getAs[Geometry](0).equals(firstValidGeometry)))
-      assert(result.exists(row => row.getAs[Geometry](0).equals(secondValidGeometry)))
+      assert(result.length == 1)
+      assert(result.take(1)(0).get(0).asInstanceOf[Geometry].toText() == "MULTIPOLYGON (((1 5, 3 3, 1 1, 1 5)), ((5 3, 7 5, 7 1, 5 3)))")
     }
 
     it("Passed ST_MakeValid On Invalid MultiPolygon") {
 
       val df = sparkSession.sql("SELECT ST_GeomFromWKT('MULTIPOLYGON(((0 0, 3 0, 3 3, 0 3, 0 0)), ((3 0, 6 0, 6 3, 3 3, 3 0)))') AS multipolygon")
-      df.createOrReplaceTempView("table")
 
-      val result = sparkSession.sql(
-        """
-          |SELECT geometryValid.multipolygon
-          |FROM table
-          |LATERAL VIEW ST_MakeValid(multipolygon, false) geometryValid AS multipolygon
-          |""".stripMargin
-      ).collect()
+      val result = df.withColumn("multipolygon", expr("ST_MakeValid(multipolygon)")).collect()
 
-      val wktReader = new WKTReader2()
-      val firstValidGeometry = wktReader.read("POLYGON ((0 3, 3 3, 3 0, 0 0, 0 3))")
-      val secondValidGeometry = wktReader.read("POLYGON ((3 3, 6 3, 6 0, 3 0, 3 3))")
-
-      assert(result.exists(row => row.getAs[Geometry](0).equals(firstValidGeometry)))
-      assert(result.exists(row => row.getAs[Geometry](0).equals(secondValidGeometry)))
+      assert(result.length == 1)
+      assert(result.take(1)(0).get(0).asInstanceOf[Geometry].toText() == "POLYGON ((0 3, 3 3, 6 3, 6 0, 3 0, 0 0, 0 3))")
     }
 
     it("Passed ST_MakeValid On Valid Polygon") {
 
       val df = sparkSession.sql("SELECT ST_GeomFromWKT('POLYGON((1 1, 8 1, 8 8, 1 8, 1 1))') AS polygon")
-      df.createOrReplaceTempView("table")
 
-      val result = sparkSession.sql(
-        """
-          |SELECT geometryValid.polygon
-          |FROM table
-          |LATERAL VIEW ST_MakeValid(polygon, false) geometryValid AS polygon
-          |""".stripMargin
-      ).collect()
+      val result = df.withColumn("polygon", expr("ST_MakeValid(polygon)")).collect()
 
-      val wktReader = new WKTReader2()
-      val validGeometry = wktReader.read("POLYGON((1 1, 8 1, 8 8, 1 8, 1 1))")
+      assert(result.length == 1)
+      assert(result.take(1)(0).get(0).asInstanceOf[Geometry].toText() == "POLYGON ((1 1, 1 8, 8 8, 8 1, 1 1))")
+    }
 
-      assert(result.exists(row => row.getAs[Geometry](0).equals(validGeometry)))
+    it("Passed ST_MakeValid on Invalid LineString") {
+
+      val df = sparkSession.sql("SELECT ST_GeomFromWKT('LINESTRING(1 1, 1 1)') AS geom")
+
+      val result = df.selectExpr("ST_MakeValid(geom)", "ST_MakeValid(geom, true)").collect()
+
+      assert(result.length == 1)
+      assert(result.take(1)(0).get(0).asInstanceOf[Geometry].toText() == "LINESTRING EMPTY")
+      assert(result.take(1)(0).get(1).asInstanceOf[Geometry].toText() == "POINT (1 1)")
     }
 
     it("Passed ST_SimplifyPreserveTopology") {
@@ -266,6 +259,26 @@ class functionTestScala extends TestBaseScala with Matchers with GeometrySample 
       assert(polygonDf.take(1)(0).getAs[Geometry]("countyshape").toText.equals(wktDf.take(1)(0).getAs[String]("wkt")))
     }
 
+    it("Passed ST_AsText 3D") {
+      val geometryDf = Seq(
+        "Point Z(21 52 87)",
+        "Polygon Z((0 0 1, 0 1 1, 1 1 1, 1 0 1, 0 0 1))",
+        "Linestring Z(0 0 1, 1 1 2, 1 0 3)",
+        "MULTIPOINT Z((10 40 66), (40 30 77), (20 20 88), (30 10 99))",
+        "MULTIPOLYGON Z(((30 20 11, 45 40 11, 10 40 11, 30 20 11)), ((15 5 11, 40 10 11, 10 20 11, 5 10 11, 15 5 11)))",
+        "MULTILINESTRING Z((10 10 11, 20 20 11, 10 40 11), (40 40 11, 30 30 11, 40 20 11, 30 10 11))",
+        "MULTIPOLYGON Z(((40 40 11, 20 45 11, 45 30 11, 40 40 11)), ((20 35 11, 10 30 11, 10 10 11, 30 5 11, 45 20 11, 20 35 11), (30 20 11, 20 15 11, 20 25 11, 30 20 11)))",
+        "POLYGON Z((0 0 11, 0 5 11, 5 5 11, 5 0 11, 0 0 11), (1 1 11, 2 1 11, 2 2 11, 1 2 11, 1 1 11))"
+      ).map(wkt => Tuple1(wktReader.read(wkt))).toDF("geom")
+
+      geometryDf.createOrReplaceTempView("geometrytable")
+      var wktDf = sparkSession.sql("select ST_AsText(geom) as wkt from geometrytable")
+      val wktWriter = new WKTWriter(3)
+      val expected = geometryDf.collect().map(row => wktWriter.write(row.getAs[Geometry]("geom")))
+      val actual = wktDf.collect().map(row => row.getAs[String]("wkt"))
+      actual should contain theSameElementsAs expected
+    }
+
     it("Passed ST_AsGeoJSON") {
       val df = sparkSession.sql("SELECT ST_GeomFromWKT('POLYGON((1 1, 8 1, 8 8, 1 8, 1 1))') AS polygon")
       df.createOrReplaceTempView("table")
@@ -281,6 +294,12 @@ class functionTestScala extends TestBaseScala with Matchers with GeometrySample 
     it("Passed ST_AsBinary") {
       val df = sparkSession.sql("SELECT ST_AsBinary(ST_GeomFromWKT('POINT (1 1)'))")
       val s = "0101000000000000000000f03f000000000000f03f"
+      assert(Hex.encodeHexString(df.first().get(0).asInstanceOf[Array[Byte]]) == s)
+    }
+
+    it("Passed ST_AsBinary empty geometry") {
+      val df = sparkSession.sql("SELECT ST_AsBinary(ST_GeomFromWKT('POINT EMPTY'))")
+      val s = "0101000000000000000000f87f000000000000f87f"
       assert(Hex.encodeHexString(df.first().get(0).asInstanceOf[Array[Byte]]) == s)
     }
 
@@ -304,6 +323,12 @@ class functionTestScala extends TestBaseScala with Matchers with GeometrySample 
       assert(Hex.encodeHexString(df.first().get(0).asInstanceOf[Array[Byte]]) == s)
     }
 
+    it("Passed ST_AsEWKB empty geometry") {
+      val df = sparkSession.sql("SELECT ST_AsEWKB(ST_SetSrid(ST_GeomFromWKT('POINT EMPTY'), 3021))")
+      val s = "0101000020cd0b0000000000000000f87f000000000000f87f"
+      assert(Hex.encodeHexString(df.first().get(0).asInstanceOf[Array[Byte]]) == s)
+    }
+
     it("Passed ST_NPoints") {
       var test = sparkSession.sql("SELECT ST_NPoints(ST_GeomFromText('LINESTRING(77.29 29.07,77.42 29.26,77.27 29.31,77.29 29.07)'))")
       assert(test.take(1)(0).get(0).asInstanceOf[Int] == 4)
@@ -315,6 +340,102 @@ class functionTestScala extends TestBaseScala with Matchers with GeometrySample 
       assert(test.take(1)(0).get(0).asInstanceOf[String].toUpperCase() == "ST_LINESTRING")
     }
 
+    it("Passed ST_Difference - part of right overlaps left") {
+
+      val testtable = sparkSession.sql("select ST_GeomFromWKT('POLYGON ((-3 -3, 3 -3, 3 3, -3 3, -3 -3))') as a,ST_GeomFromWKT('POLYGON ((0 -4, 4 -4, 4 4, 0 4, 0 -4))') as b")
+      testtable.createOrReplaceTempView("testtable")
+      val diff = sparkSession.sql("select ST_Difference(a,b) from testtable")
+      assert(diff.take(1)(0).get(0).asInstanceOf[Geometry].toText.equals("POLYGON ((0 -3, -3 -3, -3 3, 0 3, 0 -3))"))
+    }
+
+    it("Passed ST_Difference - right not overlaps left") {
+
+      val testtable = sparkSession.sql("select ST_GeomFromWKT('POLYGON ((-3 -3, -3 3, 3 3, 3 -3, -3 -3))') as a,ST_GeomFromWKT('POLYGON ((5 -3, 7 -3, 7 -1, 5 -1, 5 -3))') as b")
+      testtable.createOrReplaceTempView("testtable")
+      val diff = sparkSession.sql("select ST_Difference(a,b) from testtable")
+      assert(diff.take(1)(0).get(0).asInstanceOf[Geometry].toText.equals("POLYGON ((-3 -3, -3 3, 3 3, 3 -3, -3 -3))"))
+    }
+
+    it("Passed ST_Difference - left contains right") {
+
+      val testtable = sparkSession.sql("select ST_GeomFromWKT('POLYGON ((-3 -3, 3 -3, 3 3, -3 3, -3 -3))') as a,ST_GeomFromWKT('POLYGON ((-1 -1, 1 -1, 1 1, -1 1, -1 -1))') as b")
+      testtable.createOrReplaceTempView("testtable")
+      val diff = sparkSession.sql("select ST_Difference(a,b) from testtable")
+      assert(diff.take(1)(0).get(0).asInstanceOf[Geometry].toText.equals("POLYGON ((-3 -3, -3 3, 3 3, 3 -3, -3 -3), (-1 -1, 1 -1, 1 1, -1 1, -1 -1))"))
+    }
+
+    it("Passed ST_Difference - right contains left") {
+
+      val testtable = sparkSession.sql("select ST_GeomFromWKT('POLYGON ((-1 -1, 1 -1, 1 1, -1 1, -1 -1))') as a,ST_GeomFromWKT('POLYGON ((-3 -3, 3 -3, 3 3, -3 3, -3 -3))') as b")
+      testtable.createOrReplaceTempView("testtable")
+      val diff = sparkSession.sql("select ST_Difference(a,b) from testtable")
+      assert(diff.take(1)(0).get(0).asInstanceOf[Geometry].toText.equals("POLYGON EMPTY"))
+    }
+
+    it("Passed ST_Difference - one null") {
+
+      val testtable = sparkSession.sql("select ST_GeomFromWKT('POLYGON ((-3 -3, 3 -3, 3 3, -3 3, -3 -3))') as a")
+      testtable.createOrReplaceTempView("testtable")
+      val diff = sparkSession.sql("select ST_Difference(a,null) from testtable")
+      assert(diff.first().get(0) == null)
+    }
+
+    it("Passed ST_SymDifference - part of right overlaps left") {
+
+      val testtable = sparkSession.sql("select ST_GeomFromWKT('POLYGON ((-1 -1, 1 -1, 1 1, -1 1, -1 -1))') as a,ST_GeomFromWKT('POLYGON ((0 -2, 2 -2, 2 0, 0 0, 0 -2))') as b")
+      testtable.createOrReplaceTempView("sym_table")
+      val symDiff = sparkSession.sql("select ST_SymDifference(a,b) from sym_table")
+      assert(symDiff.take(1)(0).get(0).asInstanceOf[Geometry].toText.equals("MULTIPOLYGON (((0 -1, -1 -1, -1 1, 1 1, 1 0, 0 0, 0 -1)), ((0 -1, 1 -1, 1 0, 2 0, 2 -2, 0 -2, 0 -1)))"))
+    }
+
+    it("Passed ST_SymDifference - right not overlaps left") {
+
+      val testtable = sparkSession.sql("select ST_GeomFromWKT('POLYGON ((-3 -3, 3 -3, 3 3, -3 3, -3 -3))') as a,ST_GeomFromWKT('POLYGON ((5 -3, 7 -3, 7 -1, 5 -1, 5 -3))') as b")
+      testtable.createOrReplaceTempView("sym_table")
+      val symDiff = sparkSession.sql("select ST_SymDifference(a,b) from sym_table")
+      assert(symDiff.take(1)(0).get(0).asInstanceOf[Geometry].toText.equals("MULTIPOLYGON (((-3 -3, -3 3, 3 3, 3 -3, -3 -3)), ((5 -3, 5 -1, 7 -1, 7 -3, 5 -3)))"))
+    }
+
+    it("Passed ST_SymDifference - contains") {
+
+      val testtable = sparkSession.sql("select ST_GeomFromWKT('POLYGON ((-3 -3, 3 -3, 3 3, -3 3, -3 -3))') as a,ST_GeomFromWKT('POLYGON ((-1 -1, 1 -1, 1 1, -1 1, -1 -1))') as b")
+      testtable.createOrReplaceTempView("sym_table")
+      val symDiff = sparkSession.sql("select ST_SymDifference(a,b) from sym_table")
+      assert(symDiff.take(1)(0).get(0).asInstanceOf[Geometry].toText.equals("POLYGON ((-3 -3, -3 3, 3 3, 3 -3, -3 -3), (-1 -1, 1 -1, 1 1, -1 1, -1 -1))"))
+    }
+
+    it("Passed ST_SymDifference - one null") {
+
+      val testtable = sparkSession.sql("select ST_GeomFromWKT('POLYGON ((-3 -3, 3 -3, 3 3, -3 3, -3 -3))') as a")
+      testtable.createOrReplaceTempView("sym_table")
+      val symDiff = sparkSession.sql("select ST_SymDifference(a,null) from sym_table")
+      assert(symDiff.first().get(0) == null)
+    }
+
+    it("Passed ST_Union - part of right overlaps left") {
+
+      val testtable = sparkSession.sql("select ST_GeomFromWKT('POLYGON ((-3 -3, 3 -3, 3 3, -3 3, -3 -3))') as a, ST_GeomFromWKT('POLYGON ((-2 1, 2 1, 2 4, -2 4, -2 1))') as b")
+      testtable.createOrReplaceTempView("union_table")
+      val union = sparkSession.sql("select ST_Union(a,b) from union_table")
+      assert(union.take(1)(0).get(0).asInstanceOf[Geometry].toText.equals("POLYGON ((2 3, 3 3, 3 -3, -3 -3, -3 3, -2 3, -2 4, 2 4, 2 3))"))
+    }
+
+    it("Passed ST_Union - right not overlaps left") {
+
+      val testtable = sparkSession.sql("select ST_GeomFromWKT('POLYGON ((-3 -3, 3 -3, 3 3, -3 3, -3 -3))') as a,ST_GeomFromWKT('POLYGON ((5 -3, 7 -3, 7 -1, 5 -1, 5 -3))') as b")
+      testtable.createOrReplaceTempView("union_table")
+      val union = sparkSession.sql("select ST_Union(a,b) from union_table")
+      println(union.take(1)(0).get(0).asInstanceOf[Geometry].toText)
+      assert(union.take(1)(0).get(0).asInstanceOf[Geometry].toText.equals("MULTIPOLYGON (((-3 -3, -3 3, 3 3, 3 -3, -3 -3)), ((5 -3, 5 -1, 7 -1, 7 -3, 5 -3)))"))
+    }
+
+    it("Passed ST_Union - one null") {
+
+      val testtable = sparkSession.sql("select ST_GeomFromWKT('POLYGON ((-3 -3, 3 -3, 3 3, -3 3, -3 -3))') as a")
+      testtable.createOrReplaceTempView("union_table")
+      val union = sparkSession.sql("select ST_Union(a,null) from union_table")
+      assert(union.first().get(0) == null)
+    }
 
     it("Passed ST_Azimuth") {
 
@@ -434,6 +555,54 @@ class functionTestScala extends TestBaseScala with Matchers with GeometrySample 
       polygons.length shouldBe 0
 
     }
+
+    it("Should pass ST_Z") {
+
+      Given("Given polygon, point and linestring dataframe")
+      val pointDF =  Seq(
+        "POINT Z (1 2 3)"
+      ).map(geom => Tuple1(wktReader.read(geom))).toDF("geom")
+      val polygonDF =  Seq(
+        "POLYGON Z ((0 0 2, 0 1 2, 1 1 2, 1 0 2, 0 0 2))"
+      ).map(geom => Tuple1(wktReader.read(geom))).toDF("geom")
+      val lineStringDF =  Seq(
+        "LINESTRING Z (0 0 1, 0 1 2)"
+      ).map(geom => Tuple1(wktReader.read(geom))).toDF("geom")
+
+      When("Running ST_Z function on polygon, point and linestring data frames")
+
+      val points = pointDF
+        .selectExpr("ST_Z(geom) as z")
+        .as[Double]
+        .collect()
+        .toList
+
+      val polygons = polygonDF
+        .selectExpr("ST_Z(geom) as z")
+        .filter("z IS NOT NULL")
+        .as[Double]
+        .collect()
+        .toList
+
+      val linestrings = lineStringDF
+        .selectExpr("ST_Z(geom) as z")
+        .filter("z IS NOT NULL")
+        .as[Double]
+        .collect()
+        .toList
+
+      Then("Point z coordinates Should match to expected point coordinates")
+
+      points should contain theSameElementsAs List(3)
+
+      And("LineString count should be 0")
+      linestrings.length shouldBe 0
+
+      And("Polygon count should be 0")
+      polygons.length shouldBe 0
+
+    }
+
     it("Should pass ST_StartPoint function") {
       Given("Polygon Data Frame, Point DataFrame, LineString Data Frame")
 
@@ -515,7 +684,7 @@ class functionTestScala extends TestBaseScala with Matchers with GeometrySample 
   it("Should pass ST_ExteriorRing") {
     Given("Polygon DataFrame and other geometries DataFrame")
     val polygonDf = createSimplePolygons(5, "geom")
-      .union(Seq("POLYGON((0 0 1, 1 1 1, 1 2 1, 1 1 1, 0 0 1))")
+      .union(Seq("POLYGON((0 0, 1 1, 1 2, 1 1, 0 0))")
         .map(wkt => Tuple1(wktReader.read(wkt))).toDF("geom")
       )
 
@@ -1067,7 +1236,7 @@ class functionTestScala extends TestBaseScala with Matchers with GeometrySample 
     Given("Sample geometry dataframe")
     val geometryTable = Seq(
       "LINESTRING(25 50, 100 125, 150 190)",
-      "LINESTRING(1 2 3, 4 5 6, 6 7 8)"
+      "LINESTRING(1 2, 4 5, 6 7)"
     ).map(geom => Tuple1(wktReader.read(geom))).toDF("geom")
 
     When("Using ST_LineInterpolatePoint")
@@ -1088,5 +1257,120 @@ class functionTestScala extends TestBaseScala with Matchers with GeometrySample 
         lineString2D.getFactory.createPoint(interPoint2D).toText,
         lineString2D.getFactory.createPoint(interPoint3D).toText
       )
+  }
+
+  it ("Should pass ST_Multi"){
+    val df = sparkSession.sql("select ST_Astext(ST_Multi(ST_Point(1.0,1.0)))")
+    val result = df.collect()
+    assert(result.head.get(0).asInstanceOf[String]=="MULTIPOINT ((1 1))")
+
+  }
+
+  it("handles nulls") {
+    var functionDf: DataFrame = null
+    functionDf = sparkSession.sql("select ST_Distance(null, null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_3DDistance(null, null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_ConvexHull(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_NPoints(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_Buffer(null, 0)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_Envelope(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_Length(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_Area(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_Centroid(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_Transform(null, null, null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_Intersection(null, null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_IsValid(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_IsSimple(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_SimplifyPreserveTopology(null, 1)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_PrecisionReduce(null, 1)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_AsText(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_AsGeoJSON(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_AsBinary(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_AsEWKB(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_SRID(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_SetSRID(null, 4326)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_GeometryType(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_LineMerge(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_Azimuth(null, null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_X(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_Y(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_Z(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_StartPoint(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_Boundary(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_MinimumBoundingRadius(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_LineSubstring(null, 0, 0)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_LineInterpolatePoint(null, 0)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_EndPoint(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_ExteriorRing(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_GeometryN(null, 0)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_InteriorRingN(null, 0)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_Dump(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_DumpPoints(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_IsClosed(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_NumInteriorRings(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_AddPoint(null, null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_RemovePoint(null, null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_IsRing(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_NumGeometries(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_FlipCoordinates(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_SubDivide(null, 0)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_SubDivideExplode(null, 0)")
+    assert(functionDf.count() == 0)
+    functionDf = sparkSession.sql("select ST_MakePolygon(null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_GeoHash(null, 1)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_Difference(null, null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_SymDifference(null, null)")
+    assert(functionDf.first().get(0) == null)
+    functionDf = sparkSession.sql("select ST_Union(null, null)")
+    assert(functionDf.first().get(0) == null)
   }
 }

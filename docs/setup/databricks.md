@@ -4,17 +4,23 @@ You just need to install the Sedona jars and Sedona Python on Databricks using D
 
 ## Advanced editions
 
+* Sedona 1.0.1 & 1.1.0 is compiled against Spark 3.1 (~ Databricks DBR 9 LTS, DBR 7 is Spark 3.0)
+* Sedona 1.1.1 is compiled against Spark 3.2 (~ DBR 10 & 11)
 
-### Databricks DBR 7.x
+> In Spark 3.2, `org.apache.spark.sql.catalyst.expressions.Generator` class added a field `nodePatterns`. Any SQL functions that rely on Generator class may have issues if compiled for a runtime with a differing spark version. For Sedona, those functions are:
+>    * ST_MakeValid
+>    * ST_SubDivideExplode
 
-If you are using the commercial version of Databricks up to version 7.x you can install the Sedona jars and Sedona Python using the Databricks default web UI and everything should work.
+__Sedona `1.1.1-incubating` is overall the recommended version to use. It is generally backwards compatible with earlier Spark releases but you should be aware of what Spark version Sedona was compiled against versus which is being executed in case you hit issues.__
 
-### Databricks DBR 8.x, 9.x, 10.x
+#### Databricks 10.x+ (Recommended)
 
-If you are using the commercial version of Databricks for DBR 8.x+
-
-* You need to use sedona version `1.1.1-incubating` or higher. 
+* You need to use Sedona version `1.1.1-incubating` or higher. 
 * In order to activate the Kryo serializer (this speeds up the serialization and deserialization of geometry types) you need to install the libraries via init script as described below.
+
+#### Databricks DBR 7.x - 9.x
+
+* If you are using the commercial version of Databricks you can install the Sedona jars and Sedona Python using the Databricks default web UI. DBR 7 matches with Sedona `1.1.0-incubating` and DBR 9 matches better with Sedona `1.1.1-incubating` due to Databricks cherry-picking some Spark 3.2 private APIs.
 
 ## Install Sedona from the web UI
 
@@ -24,19 +30,18 @@ If you are using the commercial version of Databricks for DBR 8.x+
     org.datasyslab:geotools-wrapper:{{ sedona.current_geotools }}
     ```
 
-2) From the Libraries tab install from PyPI
+2) For enabling python support, from the Libraries tab install from PyPI
     ```
     apache-sedona
     ```
 
-3) (For DBR up to 7.3 LTS) You can speed up the serialization of geometry types by adding to your spark configurations (`Cluster` -> `Edit` -> `Configuration` -> `Advanced options`) the following lines:
-
+3) (Only for DBR up to 7.3 LTS) You can speed up the serialization of geometry types by adding to your spark configurations (`Cluster` -> `Edit` -> `Configuration` -> `Advanced options`) the following lines:
     ```
     spark.serializer org.apache.spark.serializer.KryoSerializer
     spark.kryo.registrator org.apache.sedona.core.serde.SedonaKryoRegistrator
     ```
+    > For DBRs after 7.3, use the Init Script method described further down.
 
-    In order to activate this options for DBR versions 8.x+, you need to install the Sedona libraries via init script because libraries installed via UI are not yet available at cluster startup when this options are regiestered.
 
 ## Initialise
 
@@ -56,11 +61,11 @@ SedonaRegistrator.registerAll(spark)
 
 ## Pure SQL environment
  
-In order to use the Sedona `ST_*` functions from SQL without having to register the Sedona functions from a python/scala cell, you need to install the sedona libraries from the [cluster init-scripts](https://docs.databricks.com/clusters/init-scripts.html) as follows.
+In order to use the Sedona `ST_*` functions from SQL without having to register the Sedona functions from a python/scala cell, you need to install the Sedona libraries from the [cluster init-scripts](https://docs.databricks.com/clusters/init-scripts.html) as follows.
 
-## Install Sedona via init script
+## Install Sedona via init script (for DBRs > 7.3)
 
-Download the Sedona jars to a DBFS location. You can do that manually via UI or from a notebook with
+Download the Sedona jars to a DBFS location. You can do that manually via UI or from a notebook by executing this code in a cell:
 
 ```bash
 %sh 
@@ -68,11 +73,11 @@ Download the Sedona jars to a DBFS location. You can do that manually via UI or 
 mkdir -p /dbfs/FileStore/jars/sedona/{{ sedona.current_version }}
 
 # Download the dependencies from Maven into DBFS
-curl -o /dbfs/FileStore/jars/sedona/{{ sedona.current_version }}/geotools-wrapper-geotools-{{ sedona.current_geotools }}.jar "https://repo1.maven.org/maven2/org/datasyslab/geotools-wrapper/geotools-{{ sedona.current_geotools }}/geotools-wrapper-geotools-{{ sedona.current_geotools }}.jar"
+curl -o /dbfs/FileStore/jars/sedona/{{ sedona.current_version }}/geotools-wrapper-{{ sedona.current_geotools }}.jar "https://repo1.maven.org/maven2/org/datasyslab/geotools-wrapper/{{ sedona.current_geotools }}/geotools-wrapper-{{ sedona.current_geotools }}.jar"
 
-curl -o /dbfs/FileStore/jars/sedona/{{ sedona.current_version }}/sedona-python-adapter-3.0_2.12-{{ sedona.current_version }}.jar "https://repo1.maven.org/maven2/org/apache/sedona/sedona-python-adapter-3.0_2.12/{{ sedona.current_version }}/sedona-python-adapter-3.0_2.{{ sedona.current_version }}.jar"
+curl -o /dbfs/FileStore/jars/sedona/{{ sedona.current_version }}/sedona-python-adapter-3.0_2.12-{{ sedona.current_version }}.jar "https://repo1.maven.org/maven2/org/apache/sedona/sedona-python-adapter-3.0_2.12/{{ sedona.current_version }}/sedona-python-adapter-3.0_2.12-{{ sedona.current_version }}.jar"
 
-curl -o /dbfs/FileStore/jars/sedona/{{ sedona.current_version }}/sedona-viz-2.4_2.12-{{ sedona.current_version }}.jar "https://repo1.maven.org/maven2/org/apache/sedona/sedona-viz-2.4_2.12/{{ sedona.current_version }}/sedona-viz-2.4_2.12-{{ sedona.current_version }}.jar"
+curl -o /dbfs/FileStore/jars/sedona/{{ sedona.current_version }}/sedona-viz-3.0_2.12-{{ sedona.current_version }}.jar "https://repo1.maven.org/maven2/org/apache/sedona/sedona-viz-3.0_2.12/{{ sedona.current_version }}/sedona-viz-3.0_2.12-{{ sedona.current_version }}.jar"
 ```
 
 Create an init script in DBFS that loads the Sedona jars into the cluster's default jar directory. You can create that from any notebook by running: 
@@ -108,8 +113,8 @@ spark.kryo.registrator org.apache.sedona.core.serde.SedonaKryoRegistrator
 
 From your cluster configuration (`Cluster` -> `Edit` -> `Configuration` -> `Advanced options` -> `Init Scripts`) add the newly created init script 
 ```
-/dbfs/FileStore/sedona/sedona-init.sh
+dbfs:/FileStore/sedona/sedona-init.sh
 ```
 
-*Note: You need to install the sedona libraries via init script because the libraries installed via UI are installed after the cluster has already started, and therefore the classes specified by the config `spark.sql.extensions`, `spark.serializer`, and `spark.kryo.registrator` are not available at startup time.*
+*Note: You need to install the Sedona libraries via init script because the libraries installed via UI are installed after the cluster has already started, and therefore the classes specified by the config `spark.sql.extensions`, `spark.serializer`, and `spark.kryo.registrator` are not available at startup time.*
 
